@@ -249,10 +249,13 @@ def load_image(path):
     else:
         image = Image.open(path)
         image = transforms.ToTensor()(image)
+    print("load_image was called!")
     return image
 
 
 def get_code(query):
+    print("this is query: ",query)
+    print("calling vision process code in main_simple_lib get_code")
     code = forward('codex', prompt=query, input_type="image")
     if config.codex.model not in ('gpt-3.5-turbo', 'gpt-4'):
         code = f'def execute_command(image, my_fig, time_wait_between_lines, syntax):' + code # chat models give execute_command due to system behaviour

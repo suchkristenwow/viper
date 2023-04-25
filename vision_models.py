@@ -940,6 +940,7 @@ def codex_helper(extended_prompt):
 #         if len(resp) == 1:
 #             resp = resp[0]
     else:
+        warnings.warn('OpenAI Codex is deprecated. Please use GPT-4 or GPT-3.5-turbo.')
         response = openai.Completion.create(
             model="code-davinci-002",
             temperature=config.codex.temperature,
@@ -1037,16 +1038,20 @@ class BLIPModel(BaseModel):
     name = 'blip'
     to_batch = True
     max_batch_size = 32
-    seconds_collect_data = 0.2  # The queue has additionally the time it is executing the previous forward pass
+    seconds_collect_data = 1  # The queue has additionally the time it is executing the previous forward pass
 
     def __init__(self, gpu_number=0, half_precision=config.blip_half_precision,
                  blip_v2_model_type=config.blip_v2_model_type):
+        #print("this is about to be called: super().__init__(gpu_number)")
         super().__init__(gpu_number)
 
+        #print("BLIPModel is being initialized!")
         # from lavis.models import load_model_and_preprocess
+        
         from transformers import BlipProcessor, BlipForConditionalGeneration, Blip2Processor, \
             Blip2ForConditionalGeneration
-
+    
+        #print("loaded transformers")
         # https://huggingface.co/models?sort=downloads&search=Salesforce%2Fblip2-
         assert blip_v2_model_type in ['blip2-flan-t5-xxl', 'blip2-flan-t5-xl', 'blip2-opt-2.7b', 'blip2-opt-6.7b',
                                       'blip2-opt-2.7b-coco', 'blip2-flan-t5-xl-coco', 'blip2-opt-6.7b-coco']
@@ -1060,15 +1065,16 @@ class BLIPModel(BaseModel):
                 self.model = Blip2ForConditionalGeneration.from_pretrained(
                     f"Salesforce/{blip_v2_model_type}", load_in_8bit=half_precision,
                     torch_dtype=torch.float16 if half_precision else "auto",
-                    device_map="sequential", max_memory=max_memory
+                    device_map="sequential", max_memory=max_memory, offload_folder="offload"
                 )
             except Exception as e:
                 # Clarify error message. The problem is that it tries to load part of the model to disk.
-                if "had weights offloaded to the disk" in e.args[0]:
-                    extra_text = ' You may want to consider setting half_precision to True.' if half_precision else ''
-                    raise MemoryError(f"Not enough GPU memory in GPU {self.dev} to load the model.{extra_text}")
-                else:
-                    raise e
+                #print(e)
+                #if "had weights offloaded to the disk" in e.args[0]:
+                #    extra_text = ' You may want to consider setting half_precision to True.' if half_precision else ''
+                #    raise MemoryError(f"Not enough GPU memory in GPU {self.dev} to load the model.{extra_text}")
+                #else:
+                raise e
 
         self.qa_prompt = "Question: {} Short answer:"
         self.caption_prompt = "a photo of"
@@ -1218,7 +1224,6 @@ class XVLMModel(BaseModel):
         }
         with warnings.catch_warnings(), HiddenPrints("XVLM"):
             model = XVLMBase(config_xvlm, use_contrastive_loss=True, vision_config=vision_config)
-
             checkpoint = torch.load(path_checkpoint, map_location='cpu')
             state_dict = checkpoint['model'] if 'model' in checkpoint.keys() else checkpoint
             msg = model.load_state_dict(state_dict, strict=False)
